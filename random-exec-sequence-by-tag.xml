@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<GMA3 DataVersion="2.2.1.1">
+    <UserPlugin Name="randexecseqtag" Version="0.0.0.1">
+        <ComponentLua Name="randexecseqtag" FileName="random-exec-sequence-by-tag.lua" />
+    </UserPlugin>
+</GMA3>

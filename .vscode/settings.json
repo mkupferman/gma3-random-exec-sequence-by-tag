@@ -1,0 +1,9 @@
+{
+    "[markdown]": {
+        "editor.wordWrap": "off",
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+    },
+    "[lua]": {
+        "editor.defaultFormatter": "yinfei.luahelper"
+    },
+}
