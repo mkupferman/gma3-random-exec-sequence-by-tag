@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check plugin version matches tag
+        run: |
+          xml_ver=$(sed -n 's/.*<UserPlugin[^>]*Version="\([^"]*\)".*/\1/p' random-exec-sequence-by-tag.xml)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ -z "$xml_ver" ]; then
+            echo "Could not read UserPlugin Version from random-exec-sequence-by-tag.xml"
+            exit 1
+          fi
+          if [ "$xml_ver" != "$tag" ]; then
+            echo "XML Version ($xml_ver) does not match tag ($tag)"
+            exit 1
+          fi
+          echo "Version $xml_ver matches tag ${GITHUB_REF_NAME}"
+
+      - name: Zip plugin files
+        run: zip "randexecseqtag-${GITHUB_REF_NAME}.zip" random-exec-sequence-by-tag.lua random-exec-sequence-by-tag.xml
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: "randexecseqtag ${{ github.ref_name }}"
+          body: |
+            Download **randexecseqtag-${{ github.ref_name }}.zip**, unzip it, and import the `.xml` into the grandMA3 Plugins pool (keep the `.lua` file next to it).
+
+            See [README](https://github.com/${{ github.repository }}/blob/main/README.md) for setup instructions.
+          files: randexecseqtag-${{ github.ref_name }}.zip
+          fail_on_unmatched_files: true

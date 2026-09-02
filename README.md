@@ -29,8 +29,10 @@ below.
 
 ### 1. Import the plugin
 
-Import `randexecseqtag` into the Plugins pool (the `.xml` file in this repo,
-with the matching `.lua` file).
+Download **randexecseqtag-vX.Y.Z.W.zip** from the
+[latest release](https://github.com/mkupferman/gma3-random-exec-sequence-by-tag/releases/latest),
+unzip it, and import the `.xml` into the Plugins pool (keep the matching `.lua`
+file next to it). You can also use the `.xml` and `.lua` files in this repo.
 
 ### 2. Tag the sequences that should be in the random pool
 
