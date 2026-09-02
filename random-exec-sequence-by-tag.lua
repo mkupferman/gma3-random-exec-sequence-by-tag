@@ -134,7 +134,6 @@ local function main(handle, params)
                     CmdIndirectWait("Off " .. selectedSeq:ToAddr())
                 end
             end
-
         else
             usage()
         end

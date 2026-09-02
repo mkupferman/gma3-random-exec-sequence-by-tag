@@ -1,9 +1,12 @@
 {
+    "editor.formatOnSave": false,
+    "editor.formatOnPaste": false,
+    "editor.formatOnType": false,
     "[markdown]": {
         "editor.wordWrap": "off",
         "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
     },
     "[lua]": {
-        "editor.defaultFormatter": "yinfei.luahelper"
-    },
+        "editor.defaultFormatter": "sumneko.lua"
+    }
 }
