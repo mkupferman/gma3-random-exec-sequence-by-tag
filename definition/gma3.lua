@@ -4,8 +4,8 @@
 ---@class Gma3Handle
 ---@field Name string
 ---@field Tags string
----@field Object Gma3Handle
----@field Pages Gma3Handle
+---@field NO number
+---@field INDEX number
 ---@field [integer] Gma3Handle
 local Gma3Handle = {}
 
@@ -14,12 +14,6 @@ function Gma3Handle:GetClass() end
 
 ---@return string
 function Gma3Handle:ToAddr() end
-
----@return boolean
-function Gma3Handle:IsRunningPlayback() end
-
----@return boolean
-function Gma3Handle:HasActivePlayback() end
 
 ---@param msg string
 ---@param ... any
@@ -37,9 +31,6 @@ function GetVar(vars, name) end
 ---@param name string
 ---@param value string|number
 function SetVar(vars, name, value) end
-
----@return Gma3Handle
-function DataPool() end
 
 ---@param search string
 ---@param options? table

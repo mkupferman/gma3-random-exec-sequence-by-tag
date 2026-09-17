@@ -6,24 +6,20 @@ goes off. You choose the pool with a [tag](https://help.malighting.com/grandMA3/
 you do not have to edit the button.
 
 Plugin name: `randexecseqtag`. Requires grandMA3 2.2.1.1 or later. Use plugin
-**0.0.1.0** on grandMA3 2.5 so the look does not stay on after you release.
+**0.0.3.0** (or later) on grandMA3 2.5, including when you Temp the dummy
+sequence over OSC.
 
-## How it is wired
+## How it works
 
-You use **two** executors:
+You use **one** dummy sequence set to **Temp**. Cue 1 tells the plugin to
+start (`op` on): it picks a tagged sequence and temps that sequence on.
+OffCue tells the plugin to stop (`op` off): it offs the sequence it last
+started.
 
-| Role | What it is | What you do with it |
-| --- | --- | --- |
-| The button you press | A small dummy sequence set to **Temp** | Hold to bump, release to off |
-| Hidden playback | A free executor, also **Temp** | Stays out of the way; the plugin parks the random sequence here and plays it |
+The rest of this guide uses the tag name `Bumps`.
 
-You never need to press the hidden executor. Each press of the dummy button
-picks a tagged sequence, assigns it to the hidden executor, and temps it on
-until you let go.
-
-The rest of this guide uses **tag `Bumps`**, **Page 1**, **Executor 115** as
-the hidden playback. Use your own numbers; they must match in every command
-below.
+One dummy sequence per tag. Two buttons that use the same tag share the
+same last-started sequence.
 
 ## Setup
 
@@ -39,99 +35,68 @@ file next to it). You can also use the `.xml` and `.lua` files in this repo.
 Create a tag named `Bumps` (or any name you prefer). Assign every sequence
 that should be eligible for the random bump to that tag.
 
-### 3. Prepare the hidden playback executor
-
-Pick a free executor, for example **Executor 115 on Page 1**. Set its key
-to **Temp**. Assign any sequence to it for now; the plugin will overwrite
-that assignment.
-
-Put this executor on a page you will not grab during a show.
-
-### 4. Build the dummy sequence you will actually press
+### 3. Build the dummy sequence you will actually press
 
 Store a new sequence with **one empty cue** (Cue 1 only). Do not add a
 second cue.
 
-**Cue 1 command** — call the plugin, pointing at the hidden executor and
-the tag:
+**Cue 1 command:**
 
 ```text
-Call Plugin "randexecseqtag" '{"exec": 115, "tag": "Bumps"}'
+Call Plugin "randexecseqtag" '{"op": "on", "tag": "Bumps"}'
 ```
 
-**OffCue command** — tell the plugin you released the button, then Off the
-hidden executor. Use `Off`, not `Temp Off`. The variable name must use the
-same page and executor as above (`randexecseqtag_held_PAGE_EXEC`):
+**OffCue command:**
 
 ```text
-Lua "SetVar(UserVars(), 'randexecseqtag_held_1_115', '0')"; Off Page 1.115
+Call Plugin "randexecseqtag" '{"op": "off", "tag": "Bumps"}'
 ```
 
-Assign this dummy sequence to the executor you will bump, and set that key
-to **Temp**.
+Use the same tag in both lines. Assign this dummy sequence to the executor  
+you will bump, and set that key to **Temp**. You can also Temp the dummy  
+sequence from OSC (press and release), the same as a handle.
 
-Do not add a cue that says `Temp On Executor 115`. The plugin does that
-after it has assigned the random sequence. A second cue (especially with a
-Follow delay) can fire after you have already released and leave a look
-stuck on.
-
-### 5. Use it
+### 4. Use it
 
 Hold the dummy Temp button: a random `Bumps` sequence plays. Release: it
 should go off, with nothing left running.
 
-If you use a different page or executor, change the number in **three**
-places: the `exec` (and optional `page`) in Cue 1, the
-`randexecseqtag_held_…` name in OffCue, and `Off Page …` in OffCue.
+If you use a different tag, change it in both Cue 1 and OffCue.
 
 ## Plugin command
 
-Cue 1 is a `Call Plugin` with a short settings string:
-
 ```text
-Call Plugin "randexecseqtag" '{"exec": 115, "tag": "Bumps"}'
+Call Plugin "randexecseqtag" '{"op": "on", "tag": "Bumps"}'
 ```
 
-| Setting | Required | Meaning |
-| --- | --- | --- |
-| `exec` | Yes | Hidden playback executor number (for example `115`) |
-| `tag` | Yes | Tag name of the sequences to pick from (for example `Bumps`) |
-| `page` | No | Executor page of the hidden playback. Defaults to `1` |
+| Setting | Required | Meaning                                                                                    |
+| ------- | -------- | ------------------------------------------------------------------------------------------ |
+| `tag`   | Yes      | Tag name of the sequences to pick from (for example `Bumps`)                               |
+| `op`    | No       | `on` starts a random bump (default if omitted). `off` stops the last one this tag started. |
 
-Example on page 2:
+`'{"tag": "Bumps"}'` is the same as `op` on. Older Cue 1 lines that still
+include `"exec"` or `"page"` still run; those keys are ignored.
 
-```text
-Call Plugin "randexecseqtag" '{"exec": 115, "tag": "Bumps", "page": 2}'
-```
+If no sequences have the tag, `on` does nothing and prints a message in  
+the command line history. `off` with nothing stored yet also does nothing.
 
-That would need OffCue:
+## Updating to 0.0.3.0
 
-```text
-Lua "SetVar(UserVars(), 'randexecseqtag_held_2_115', '0')"; Off Page 2.115
-```
+1. Import plugin **0.0.3.0** over the existing `randexecseqtag` plugin.
+2. Set Cue 1 to:
 
-If no sequences have the tag, the plugin does nothing and prints a message
-in the command line history.
+  ```text
+   Call Plugin "randexecseqtag" '{"op": "on", "tag": "Bumps"}'
+  ```
 
-This plugin is meant for **buttons**, not faders.
+3. **Delete Cue 2** if it still `Temp On`s an executor.
+2. Set OffCue to:
 
-## Updating from plugin 0.0.0.1 to 0.0.1.0
+  ```text
+   Call Plugin "randexecseqtag" '{"op": "off", "tag": "Bumps"}'
+  ```
 
-If the dummy sequence already worked on older grandMA3 (Cue 1 calls the
-plugin, Cue 2 temps the hidden executor on, OffCue temps it off), change
-three things for 2.5:
-
-1. Import plugin **0.0.1.0** over the existing `randexecseqtag` plugin. You
-   can leave the Cue 1 `Call Plugin` line as it is.
-2. **Delete Cue 2** (`Temp On Executor 115`). The plugin now temps the
-   hidden executor on by itself.
-3. Change OffCue from `Temp Off Executor 115` to:
-
-   ```text
-   Lua "SetVar(UserVars(), 'randexecseqtag_held_1_115', '0')"; Off Page 1.115
-   ```
-
-   Match page and executor to your setup, as in the setup steps above.
-
-Keep the tag, the hidden executor, Cue 1, and the dummy sequence’s Temp
-key as they were.
+   Replace a 0.0.2.0 OffCue that used `SetUserVariable` and
+   `Off Sequence $randexecseqtag_last_…`. You can drop `Off Page 1.115`.
+5. Delete or ignore the old hidden playback executor (for example 115).
+  The dummy Temp sequence is the only handle you need.

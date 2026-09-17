@@ -1,53 +1,67 @@
--- Randomly selects a sequence that is tagged with the passed tag.
--- Assigns it to the passed executor and Temp-Ons it if the caller is still held.
+-- Randomly selects a tagged sequence and Temp-Ons it (op on).
+-- OffCue Call Plugin with op off offs the last sequence.
 local json = require('json')
 
 local function usage()
     Echo("Usage: call plugin <num> '{<json args>}'")
-    Echo("       Where args are 'exec', 'tag',")
-    Echo("       'page'=1")
-    Echo("Example: call plugin 1 '{\"exec\": 115, \"tag\": \"Bumps\"}'")
+    Echo("       Where args are 'tag', optional 'op' (on|off, default on)")
+    Echo("Example: call plugin 1 '{\"op\": \"on\", \"tag\": \"Bumps\"}'")
 end
 
-local function holdVarName(page, execNumber)
-    return "randexecseqtag_held_" .. page .. "_" .. execNumber
+-- User-var suffix from the tag. Non-alphanumeric becomes '_'.
+local function varKey(tagName)
+    local key = string.gsub(tostring(tagName), "[^%w]", "_")
+    key = string.gsub(key, "^_+", "")
+    key = string.gsub(key, "_+$", "")
+    key = string.gsub(key, "_+", "_")
+    if key == "" then
+        return nil
+    end
+    return key
 end
 
-local function isHeld(page, execNumber)
-    local v = GetVar(UserVars(), holdVarName(page, execNumber))
+local function holdVarName(key)
+    return "randexecseqtag_held_" .. key
+end
+
+local function lastVarName(key)
+    return "randexecseqtag_last_" .. key
+end
+
+local function isHeld(key)
+    local v = GetVar(UserVars(), holdVarName(key))
     return v == "1" or v == 1
 end
 
-local function setHeld(page, execNumber, value)
-    SetVar(UserVars(), holdVarName(page, execNumber), value)
+local function setHeld(key, value)
+    SetVar(UserVars(), holdVarName(key), value)
 end
 
--- IsRunningPlayback replaced HasActivePlayback in 2.4; keep a fallback for 2.2–2.3.
-local function isRunningPlayback(obj)
-    if obj == nil then
-        return false
-    end
-    local ok, running = pcall(function()
-        return obj:IsRunningPlayback()
-    end)
-    if ok then
-        return running and true or false
-    end
-    ok, running = pcall(function()
-        return obj:HasActivePlayback()
-    end)
-    if ok then
-        return running and true or false
-    end
-    return false
+local function lastSeq(key)
+    return GetVar(UserVars(), lastVarName(key))
 end
 
-local function getExecutor(page, execIndex)
-    local pages = DataPool().Pages
-    if pages == nil or pages[page] == nil then
+local function offLast(key)
+    local prev = lastSeq(key)
+    if prev ~= nil and tostring(prev) ~= "" then
+        CmdIndirectWait("Off Sequence " .. tostring(prev))
+    end
+end
+
+local function sequenceIndex(seq)
+    if seq == nil then
         return nil
     end
-    return pages[page][execIndex]
+    local n = seq.NO
+    if type(n) == "number" then
+        return n
+    end
+    n = seq.INDEX
+    if type(n) == "number" then
+        return n
+    end
+    local addr = seq:ToAddr()
+    return tonumber((string.match(tostring(addr), "(%d+)$")))
 end
 
 local function hasTag(seqTags, tagName)
@@ -88,56 +102,73 @@ local function getSeqsByTag(tagName)
     return seqMatches
 end
 
+local function opOff(key)
+    setHeld(key, "0")
+    offLast(key)
+end
+
+local function opOn(tagName, key)
+    setHeld(key, "1")
+
+    local taggedSeqs = getSeqsByTag(tagName)
+    if #taggedSeqs == 0 then
+        Echo("randexecseqtag: no sequences tagged '" .. tagName .. "'")
+        return
+    end
+
+    if not isHeld(key) then
+        return
+    end
+
+    offLast(key)
+
+    if not isHeld(key) then
+        return
+    end
+
+    local selectedSeq = taggedSeqs[math.random(1, #taggedSeqs)]
+    local seqNo = sequenceIndex(selectedSeq)
+    if seqNo ~= nil then
+        SetVar(UserVars(), lastVarName(key), seqNo)
+    end
+
+    CmdIndirectWait("Temp On " .. selectedSeq:ToAddr())
+    if not isHeld(key) then
+        CmdIndirectWait("Off " .. selectedSeq:ToAddr())
+    end
+end
+
 local function main(handle, params)
-    if params then
-        local args = json.decode(params)
-        if args["exec"] and args["tag"] then
-            local execNumber = args["exec"]
-            local exec = execNumber - 100
-            local tagName = args["tag"]
-            local page = 1
+    if not params then
+        usage()
+        return
+    end
 
-            if args["page"] then
-                page = args["page"]
-            end
+    local args = json.decode(params)
+    if not args["tag"] then
+        usage()
+        return
+    end
 
-            -- Mark held before the tag scan so OffCue can cancel a late Temp On.
-            setHeld(page, execNumber, "1")
+    local tagName = args["tag"]
+    local key = varKey(tagName)
+    if key == nil then
+        Echo("randexecseqtag: tag does not yield a usable variable name")
+        usage()
+        return
+    end
 
-            local taggedSeqs = getSeqsByTag(tagName)
-            if #taggedSeqs == 0 then
-                Echo("randexecseqtag: no sequences tagged '" .. tagName .. "'")
-                return
-            end
+    local op = "on"
+    if args["op"] ~= nil then
+        op = string.lower(tostring(args["op"]))
+    end
 
-            local randomIndex = math.random(1, #taggedSeqs)
-            local selectedSeq = taggedSeqs[randomIndex]
-            local execAddr = "Page " .. page .. "." .. execNumber
-            local executor = getExecutor(page, exec)
-            if executor ~= nil then
-                local assigned = executor.Object
-                if assigned ~= nil and assigned:GetClass() == "Sequence" then
-                    if isRunningPlayback(assigned) then
-                        -- Off the sequence object so Assign cannot orphan it.
-                        CmdIndirectWait("Off " .. assigned:ToAddr())
-                    end
-                end
-            end
-
-            CmdIndirectWait("Assign " .. selectedSeq:ToAddr() .. " At " .. execAddr)
-
-            if isHeld(page, execNumber) then
-                CmdIndirectWait("Temp On " .. execAddr)
-                -- User released while Temp On was in flight.
-                if not isHeld(page, execNumber) then
-                    CmdIndirectWait("Off " .. execAddr)
-                    CmdIndirectWait("Off " .. selectedSeq:ToAddr())
-                end
-            end
-        else
-            usage()
-        end
+    if op == "off" then
+        opOff(key)
+    elseif op == "on" then
+        opOn(tagName, key)
     else
+        Echo("randexecseqtag: unknown op '" .. op .. "'")
         usage()
     end
 end
